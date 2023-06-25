@@ -1,14 +1,18 @@
-use actix_web::dev::Server;
-use actix_web::{web, App, HttpResponse, HttpServer};
-use std::net::TcpListener;
+mod routes;
 
-async fn health_check() -> HttpResponse {
-    HttpResponse::Ok().finish()
-}
+use axum::{
+    routing::{get, post},
+    Router,
+};
+use tokio::{io, net::TcpListener};
 
-pub fn run(listener: TcpListener) -> Result<Server, std::io::Error> {
-    let server = HttpServer::new(|| App::new().route("/health_check", web::get().to(health_check)))
-        .listen(listener)?
-        .run();
-    Ok(server)
+pub async fn run(listener: TcpListener) -> io::Result<()> {
+    let app = Router::new()
+        .route("/health_check", get(routes::health_check))
+        .route("/subscriptions", post(routes::subscribe));
+
+    let addr = listener.local_addr()?;
+    println!("Server running on http://{}:{}", addr.ip(), addr.port());
+
+    axum::serve(listener, app).await
 }
