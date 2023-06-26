@@ -1,3 +1,4 @@
+use env_logger::Env;
 use surrealdb::Surreal;
 use surrealdb::{engine::remote::ws::Ws, opt::auth::Root};
 use tokio::{io, net::TcpListener};
@@ -5,6 +6,9 @@ use zero2prod::startup::run;
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
+    // Setup tracing
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+
     let configuration =
         zero2prod::configuration::get_configuration().expect("Failed to read configuration.");
 
