@@ -2,15 +2,10 @@ use std::net::SocketAddr;
 
 use hyper::StatusCode;
 
-use surrealdb::{
-    engine::remote::ws::{Client, Ws},
-    opt::auth::Root,
-    sql::Uuid,
-    Surreal,
-};
+use surrealdb::sql::Uuid;
 use tokio::net::TcpListener;
 use zero2prod::{
-    configuration::{get_configuration, DatabaseSettings, Settings},
+    configuration::{get_configuration, Settings},
     routes::Subscription,
     startup::run,
 };
@@ -18,27 +13,6 @@ use zero2prod::{
 pub struct TestApp {
     pub addr: SocketAddr,
     pub config: Settings,
-}
-
-async fn connect_db(config: &DatabaseSettings) -> Surreal<Client> {
-    let connection_string = config.connection_string();
-
-    // Setup surrealdb connection
-    let db = Surreal::new::<Ws>(connection_string).await.unwrap();
-
-    db.signin(Root {
-        username: "root",
-        password: "root",
-    })
-    .await
-    .unwrap();
-
-    db.use_ns(config.namespace.clone())
-        .use_db(config.name.clone())
-        .await
-        .unwrap();
-
-    db
 }
 
 async fn spawn_app() -> TestApp {
@@ -50,7 +24,7 @@ async fn spawn_app() -> TestApp {
     let mut config = get_configuration().expect("Failed to read configuration.");
     config.database.name = Uuid::new_v4().to_string();
 
-    let db = connect_db(&config.database).await;
+    let db = zero2prod::db::connect(&config.database).await;
     tokio::spawn(async move { run(listener, db).await.expect("Failed to bind address") });
     TestApp { addr, config }
 }
@@ -75,10 +49,8 @@ async fn health_check_works() {
 async fn subscribe_returns_a_200_for_valid_form_data() {
     // Arrange
     let TestApp { addr, config } = spawn_app().await;
+    let db = zero2prod::db::connect(&config.database).await;
     let client = reqwest::Client::new();
-
-    // Setup surrealdb connection
-    let db = connect_db(&config.database).await;
 
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     let response = client

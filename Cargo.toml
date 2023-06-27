@@ -11,19 +11,20 @@ name = "zero2prod"
 path = "src/main.rs"
 
 [dependencies]
-axum               = { git = "https://github.com/tokio-rs/axum" }
-chrono             = { version = "0.4", default-features = false, features = ["clock"] }
-config             = { version = "0.13" }
-env_logger         = "0.10"
-hyper              = { version = "1.0.0-rc.3", features = ["full"] }
-log                = "0.4"
-serde              = { version = "1", features = ["derive"] }
-surrealdb          = "1.0.0-beta.9"
-tokio              = { version = "1", features = ["macros", "rt-multi-thread"] }
-tower-http         = { version = "0.4", features = ["trace"] }
-tracing            = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-uuid               = { version = "1", features = ["v4"] }
+axum                     = { git = "https://github.com/tokio-rs/axum" }
+chrono                   = { version = "0.4", default-features = false, features = ["clock"] }
+config                   = { version = "0.13" }
+hyper                    = { version = "1.0.0-rc.3", features = ["full"] }
+log                      = "0.4"
+serde                    = { version = "1", features = ["derive"] }
+surrealdb                = "1.0.0-beta.9"
+tokio                    = { version = "1", features = ["macros", "rt-multi-thread"] }
+tower-http               = { version = "0.4", features = ["trace"] }
+tracing                  = "0.1"
+tracing-bunyan-formatter = "0.3"
+tracing-log              = "0.1"
+tracing-subscriber       = { version = "0.3", features = ["env-filter", "ansi", "fmt"] }
+uuid                     = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 reqwest = "0.11"
