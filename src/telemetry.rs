@@ -1,6 +1,7 @@
 use tracing::subscriber::set_global_default;
 use tracing::Subscriber;
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
+use tracing_error::ErrorLayer;
 use tracing_log::LogTracer;
 use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
@@ -26,6 +27,7 @@ where
         .with(env_filter)
         .with(JsonStorageLayer)
         .with(formatting_layer)
+        .with(ErrorLayer::default())
 }
 
 /// Register a subscriber as global default to process span data.

@@ -3,8 +3,6 @@ use axum::{http, response::IntoResponse, Form};
 use chrono::{DateTime, Utc};
 use surrealdb::sql::Thing;
 
-// const SUBSCRIPTIONS: &str = "subscriptions";
-
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct FormData {
     email: String,
@@ -29,31 +27,24 @@ pub struct Subscription {
     )
 )]
 pub async fn subscribe(db: Db, Form(form): Form<FormData>) -> impl IntoResponse {
-    let request_id = uuid::Uuid::new_v4();
-    let request_span = tracing::info_span!(
-        "Adding a new subscriber",
-        %request_id,
-        email = %form.email,
-        name = %form.name
-    );
-
-    let _guard = request_span.enter();
-
-    match db
-        .query(
-            "CREATE subscriptions:uuid() SET name = $name, email = $email, subscribed_at = time::now();",
-        )
-        .bind(("name", form.name))
-        .bind(("email", form.email))
-        .await
-    {
-        Ok(_) => {
-            tracing::info!("Request Id {request_id} - Successfully saved subscriber details");
-            http::StatusCode::OK
-        },
-        Err(e) => {
-            tracing::error!("Request id {request_id} - Error saving subscriber details: {:?}", e);
-            http::StatusCode::INTERNAL_SERVER_ERROR
-        }
+    match insert_subscriber(db, form).await {
+        Ok(_) => http::StatusCode::OK,
+        Err(_) => http::StatusCode::INTERNAL_SERVER_ERROR,
     }
+}
+
+#[tracing::instrument(name = "Saving new subscriber details in the database", skip(form, db))]
+pub async fn insert_subscriber(db: Db, form: FormData) -> Result<(), surrealdb::Error> {
+    db
+      .query(
+          "CREATE subscriptions:uuid() SET name = $name, email = $email, subscribed_at = time::now();",
+      )
+      .bind(("name", form.name))
+      .bind(("email", form.email))
+      .await.map_err(|e| {
+          tracing::error!("Failed to execute query: {:?}", e);
+          e
+      })?;
+
+    Ok(())
 }

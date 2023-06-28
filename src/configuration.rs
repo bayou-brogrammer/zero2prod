@@ -1,3 +1,4 @@
+use secrecy::{Secret, SecretString};
 use serde::Deserialize;
 use surrealdb::engine::remote::ws::Client;
 
@@ -15,16 +16,16 @@ pub struct DatabaseSettings {
     pub name: String,
     pub host: String,
     pub username: String,
-    pub password: String,
     pub namespace: String,
+    pub password: SecretString,
 }
 
 impl DatabaseSettings {
     /// Returns a connection string for our database
     /// `Surreal::new<Ws>("<host>:<port>")`
     #[must_use]
-    pub fn connection_string(&self) -> String {
-        format!("{}:{}", self.host, self.port)
+    pub fn connection_string(&self) -> SecretString {
+        Secret::new(format!("{}:{}", self.host, self.port))
     }
 }
 
