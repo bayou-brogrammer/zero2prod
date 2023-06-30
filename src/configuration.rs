@@ -2,6 +2,7 @@ use secrecy::{Secret, SecretString};
 use serde::Deserialize;
 use surrealdb::engine::remote::ws::Client;
 
+const CONFIG_FILE: &str = "configuration.yaml";
 pub type Db = axum::extract::State<surrealdb::Surreal<Client>>;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -33,10 +34,7 @@ impl DatabaseSettings {
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     // Initialize our configuration reader
     let settings = config::Config::builder()
-        .add_source(config::File::new(
-            "configuration.yaml",
-            config::FileFormat::Yaml,
-        ))
+        .add_source(config::File::new(CONFIG_FILE, config::FileFormat::Yaml))
         .build()?;
 
     // Try to convert the configuration values it read into
