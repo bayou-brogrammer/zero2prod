@@ -1,43 +1,55 @@
-use secrecy::{Secret, SecretString};
-use serde::Deserialize;
-use surrealdb::engine::remote::ws::Client;
+use secrecy::{ExposeSecret, Secret};
+use sqlx::PgPool;
 
-const CONFIG_FILE: &str = "configuration.yaml";
-pub type Db = axum::extract::State<surrealdb::Surreal<Client>>;
+pub type Db = axum::extract::State<PgPool>;
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(serde::Deserialize)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application_port: u16,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(serde::Deserialize)]
 pub struct DatabaseSettings {
-    pub port: u16,
-    pub name: String,
-    pub host: String,
     pub username: String,
-    pub namespace: String,
-    pub password: SecretString,
+    pub password: Secret<String>,
+    pub port: u16,
+    pub host: String,
+    pub database_name: String,
 }
 
 impl DatabaseSettings {
-    /// Returns a connection string for our database
-    /// `Surreal::new<Ws>("<host>:<port>")`
     #[must_use]
-    pub fn connection_string(&self) -> SecretString {
-        Secret::new(format!("{}:{}", self.host, self.port))
+    pub fn connection_string(&self) -> Secret<String> {
+        Secret::new(format!(
+            "postgres://{}:{}@{}:{}/{}",
+            self.username,
+            self.password.expose_secret(),
+            self.host,
+            self.port,
+            self.database_name
+        ))
+    }
+
+    #[must_use]
+    pub fn connection_string_without_db(&self) -> Secret<String> {
+        Secret::new(format!(
+            "postgres://{}:{}@{}:{}",
+            self.username,
+            self.password.expose_secret(),
+            self.host,
+            self.port
+        ))
     }
 }
 
 #[allow(clippy::module_name_repetitions)]
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
-    // Initialize our configuration reader
     let settings = config::Config::builder()
-        .add_source(config::File::new(CONFIG_FILE, config::FileFormat::Yaml))
+        .add_source(config::File::new(
+            "configuration.yaml",
+            config::FileFormat::Yaml,
+        ))
         .build()?;
-
-    // Try to convert the configuration values it read into
-    // our Settings type
     settings.try_deserialize::<Settings>()
 }

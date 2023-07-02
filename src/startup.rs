@@ -1,11 +1,12 @@
 use crate::routes;
 use axum::{
     http::Request,
-    routing::{get, post},
-    Router,
+    routing::{get, post, IntoMakeService},
+    Router, Server,
 };
-use surrealdb::{engine::remote::ws::Client, Surreal};
-use tokio::{io, net::TcpListener};
+use hyper::server::conn::AddrIncoming;
+use sqlx::PgPool;
+use std::net::TcpListener;
 use tower::ServiceBuilder;
 use tower_http::{
     request_id::{MakeRequestId, RequestId},
@@ -14,6 +15,8 @@ use tower_http::{
 };
 use tracing::Level;
 use uuid::Uuid;
+
+pub type App = Server<AddrIncoming, IntoMakeService<Router>>;
 
 // from https://docs.rs/tower-http/0.2.5/tower_http/request_id/index.html#using-uuids
 #[derive(Clone)]
@@ -27,11 +30,11 @@ impl MakeRequestId for MakeRequestUuid {
     }
 }
 
-pub async fn run(listener: TcpListener, db: Surreal<Client>) -> io::Result<()> {
+pub fn run(listener: TcpListener, db_pool: PgPool) -> hyper::Result<App> {
     let app = Router::new()
         .route("/health_check", get(routes::health_check))
         .route("/subscriptions", post(routes::subscribe))
-        .with_state(db.clone())
+        .with_state(db_pool)
         .layer(
             // from https://docs.rs/tower-http/0.2.5/tower_http/request_id/index.html#using-trace
             ServiceBuilder::new()
@@ -48,8 +51,8 @@ pub async fn run(listener: TcpListener, db: Surreal<Client>) -> io::Result<()> {
                 .propagate_x_request_id(),
         );
 
-    let addr = listener.local_addr()?;
+    let addr = listener.local_addr().unwrap();
     println!("Server running on http://{addr}");
 
-    axum::serve(listener, app).await
+    Ok(Server::from_tcp(listener)?.serve(app.into_make_service()))
 }
