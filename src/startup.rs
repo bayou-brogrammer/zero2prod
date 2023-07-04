@@ -1,10 +1,9 @@
 use crate::routes;
 use axum::{
     http::Request,
-    routing::{get, post, IntoMakeService},
-    Router, Server,
+    routing::{get, post},
+    Router,
 };
-use hyper::server::conn::AddrIncoming;
 use sqlx::PgPool;
 use std::net::TcpListener;
 use tower::ServiceBuilder;
@@ -15,8 +14,6 @@ use tower_http::{
 };
 use tracing::Level;
 use uuid::Uuid;
-
-pub type App = Server<AddrIncoming, IntoMakeService<Router>>;
 
 // from https://docs.rs/tower-http/0.2.5/tower_http/request_id/index.html#using-uuids
 #[derive(Clone)]
@@ -30,7 +27,7 @@ impl MakeRequestId for MakeRequestUuid {
     }
 }
 
-pub fn run(listener: TcpListener, db_pool: PgPool) -> hyper::Result<App> {
+pub async fn run(listener: TcpListener, db_pool: PgPool) -> hyper::Result<()> {
     let app = Router::new()
         .route("/health_check", get(routes::health_check))
         .route("/subscriptions", post(routes::subscribe))
@@ -54,5 +51,7 @@ pub fn run(listener: TcpListener, db_pool: PgPool) -> hyper::Result<App> {
     let addr = listener.local_addr().unwrap();
     println!("Server running on http://{addr}");
 
-    Ok(Server::from_tcp(listener)?.serve(app.into_make_service()))
+    axum::Server::from_tcp(listener)?
+        .serve(app.into_make_service())
+        .await
 }

@@ -33,7 +33,7 @@ then
     RUNNING_POSTGRES_CONTAINER=$(docker ps --filter 'name=postgres' --format '{{.ID}}')
     if [[ -n $RUNNING_POSTGRES_CONTAINER ]]; then
         echo >&2 "there is a postgres container already running, kill it with"
-        echo >&2 "    docker kill ${RUNNING_POSTGRES_CONTAINER}"
+        echo >&2 "docker kill ${RUNNING_POSTGRES_CONTAINER}"
         exit 1
     fi
     # Launch postgres using Docker

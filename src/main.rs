@@ -6,7 +6,7 @@ use zero2prod::startup::run;
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
 #[tokio::main]
-async fn main() -> hyper::Result<()> {
+async fn main() {
     let subscriber = get_subscriber("zero2prod".into(), "info".into(), std::io::stdout);
     init_subscriber(subscriber);
 
@@ -17,11 +17,6 @@ async fn main() -> hyper::Result<()> {
         .connect_lazy(configuration.database.connection_string().expose_secret())
         .expect("Failed to connect to Postgres.");
 
-    let addr = format!(
-        "{}:{}",
-        configuration.application.host, configuration.application.port
-    );
-    let listener = TcpListener::bind(addr).expect("Unable to bind to port");
-
-    run(listener, connection_pool)?.await
+    let listener = TcpListener::bind(configuration.application.address()).unwrap();
+    run(listener, connection_pool).await.unwrap();
 }
