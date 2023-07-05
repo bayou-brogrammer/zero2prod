@@ -1,5 +1,9 @@
 use secrecy::{ExposeSecret, Secret};
-use sqlx::PgPool;
+use serde_aux::prelude::deserialize_number_from_string;
+use sqlx::{
+    postgres::{PgConnectOptions, PgSslMode},
+    ConnectOptions, PgPool,
+};
 
 pub type Db = axum::extract::State<PgPool>;
 
@@ -11,6 +15,7 @@ pub struct Settings {
 
 #[derive(serde::Deserialize)]
 pub struct ApplicationSettings {
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
 }
@@ -24,35 +29,37 @@ impl ApplicationSettings {
 
 #[derive(serde::Deserialize)]
 pub struct DatabaseSettings {
-    pub username: String,
-    pub password: Secret<String>,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
+    pub username: String,
+    pub require_ssl: bool,
     pub database_name: String,
+    pub password: Secret<String>,
 }
 
 impl DatabaseSettings {
     #[must_use]
-    pub fn connection_string(&self) -> Secret<String> {
-        Secret::new(format!(
-            "postgres://{}:{}@{}:{}/{}",
-            self.username,
-            self.password.expose_secret(),
-            self.host,
-            self.port,
-            self.database_name
-        ))
+    pub fn with_db(&self) -> PgConnectOptions {
+        let mut options = self.without_db().database(&self.database_name);
+        options.log_statements(tracing_log::log::LevelFilter::Trace);
+        options
     }
 
     #[must_use]
-    pub fn connection_string_without_db(&self) -> Secret<String> {
-        Secret::new(format!(
-            "postgres://{}:{}@{}:{}",
-            self.username,
-            self.password.expose_secret(),
-            self.host,
-            self.port
-        ))
+    pub fn without_db(&self) -> PgConnectOptions {
+        let ssl_mode = if self.require_ssl {
+            PgSslMode::Require
+        } else {
+            PgSslMode::Prefer
+        };
+
+        PgConnectOptions::new()
+            .port(self.port)
+            .host(&self.host)
+            .ssl_mode(ssl_mode)
+            .username(&self.username)
+            .password(self.password.expose_secret())
     }
 }
 
@@ -77,7 +84,13 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .add_source(config::File::from(
             configuration_directory.join(environment_filename),
         ))
+        .add_source(
+            config::Environment::with_prefix("APP")
+                .prefix_separator("_")
+                .separator("__"),
+        )
         .build()?;
+
     settings.try_deserialize::<Settings>()
 }
 
