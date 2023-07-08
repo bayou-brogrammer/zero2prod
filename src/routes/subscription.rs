@@ -7,7 +7,7 @@ use axum::extract::State;
 use axum::{http, response::IntoResponse, Form};
 use rand::{thread_rng, Rng};
 use sqlx::types::chrono::Utc;
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
