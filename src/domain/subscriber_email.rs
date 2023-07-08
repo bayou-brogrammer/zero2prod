@@ -1,6 +1,6 @@
 use validator::validate_email;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct SubscriberEmail(String);
 
 impl TryFrom<&str> for SubscriberEmail {
@@ -9,6 +9,18 @@ impl TryFrom<&str> for SubscriberEmail {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         if validate_email(value) {
             Ok(Self(value.into()))
+        } else {
+            Err(format!("{value} is not a valid subscriber email."))
+        }
+    }
+}
+
+impl TryFrom<String> for SubscriberEmail {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if validate_email(&value) {
+            Ok(Self(value))
         } else {
             Err(format!("{value} is not a valid subscriber email."))
         }
@@ -63,3 +75,4 @@ mod tests {
         SubscriberEmail::try_from(valid_email.0.as_str()).is_ok()
     }
 }
+// c9a2fd1726b896e88e4b763a9ebbbd27-us21

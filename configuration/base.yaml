@@ -8,3 +8,8 @@ database:
   password: "password"
   database_name: "newsletter"
   require_ssl: false
+email_client:
+  timeout_milliseconds: 10000
+  sender_email: "test@gmail.com"
+  base_url: "https://api.mailgun.net/v3"
+  authorization_token: "pubkey-6bf93844d27461b5362f8aa53a60c3bc"

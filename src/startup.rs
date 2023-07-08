@@ -1,38 +1,60 @@
-use crate::routes;
+use crate::{
+    configuration::{DatabaseSettings, Settings},
+    email_client::EmailClient,
+    routes,
+};
 use axum::{
-    http::Request,
+    extract::FromRef,
     routing::{get, post},
     Router,
 };
+use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::net::TcpListener;
 use tower::ServiceBuilder;
 use tower_http::{
-    request_id::{MakeRequestId, RequestId},
+    request_id::MakeRequestUuid,
     trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer},
     ServiceBuilderExt,
 };
 use tracing::Level;
-use uuid::Uuid;
 
-// from https://docs.rs/tower-http/0.2.5/tower_http/request_id/index.html#using-uuids
-#[derive(Clone)]
-struct MakeRequestUuid;
+#[derive(Clone, Debug)]
+pub struct AppState {
+    pub db_pool: PgPool,
+    pub base_url: String,
+    pub email_client: EmailClient,
+}
 
-impl MakeRequestId for MakeRequestUuid {
-    fn make_request_id<B>(&mut self, _: &Request<B>) -> Option<RequestId> {
-        let request_id = Uuid::new_v4().to_string();
-
-        Some(RequestId::new(request_id.parse().unwrap()))
+impl FromRef<AppState> for PgPool {
+    fn from_ref(app_state: &AppState) -> PgPool {
+        app_state.db_pool.clone()
     }
 }
 
-pub async fn run(listener: TcpListener, db_pool: PgPool) -> hyper::Result<()> {
-    let app = Router::new()
-        .route("/health_check", get(routes::health_check))
-        .route("/subscriptions", post(routes::subscribe))
-        .with_state(db_pool)
-        .layer(
+pub struct Application {
+    app: Router,
+    listener: TcpListener,
+}
+
+impl Application {
+    pub fn build(settings: Settings) -> Self {
+        let db_pool = get_connection_pool(&settings.database);
+
+        let sender_email = settings
+            .email_client
+            .sender()
+            .expect("Invalid sender email address.");
+
+        let timeout = settings.email_client.timeout();
+        let email_client = EmailClient::new(
+            settings.email_client.base_url,
+            sender_email,
+            settings.email_client.authorization_token,
+            timeout,
+        );
+
+        let request_layer = ServiceBuilder::new().layer(
             // from https://docs.rs/tower-http/0.2.5/tower_http/request_id/index.html#using-trace
             ServiceBuilder::new()
                 .set_x_request_id(MakeRequestUuid)
@@ -48,10 +70,47 @@ pub async fn run(listener: TcpListener, db_pool: PgPool) -> hyper::Result<()> {
                 .propagate_x_request_id(),
         );
 
-    let addr = listener.local_addr().unwrap();
-    println!("Server running on http://{addr}");
+        let state = AppState {
+            db_pool,
+            email_client,
+            base_url: settings.application.base_url.clone(),
+        };
 
-    axum::Server::from_tcp(listener)?
-        .serve(app.into_make_service())
-        .await
+        let router = Router::new()
+            .route("/health_check", get(routes::health_check))
+            .route("/subscriptions", post(routes::subscribe))
+            .route("/subscriptions/confirm", get(routes::confirm))
+            .with_state(state)
+            .layer(request_layer);
+
+        let listener = TcpListener::bind(settings.application.address()).unwrap();
+
+        Application {
+            app: router,
+            listener,
+        }
+    }
+
+    #[must_use]
+    pub fn address(&self) -> String {
+        format!("{}", self.listener.local_addr().unwrap())
+    }
+
+    #[must_use]
+    pub fn port(&self) -> u16 {
+        self.listener.local_addr().unwrap().port()
+    }
+
+    pub async fn run(self) -> Result<(), hyper::Error> {
+        hyper::Server::from_tcp(self.listener)?
+            .serve(self.app.into_make_service())
+            .await
+    }
+}
+
+#[must_use]
+pub fn get_connection_pool(settings: &DatabaseSettings) -> PgPool {
+    PgPoolOptions::new()
+        .acquire_timeout(std::time::Duration::from_secs(2))
+        .connect_lazy_with(settings.with_db())
 }

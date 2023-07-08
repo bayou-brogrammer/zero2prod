@@ -2,8 +2,10 @@ use secrecy::{ExposeSecret, Secret};
 use serde_aux::prelude::deserialize_number_from_string;
 use sqlx::{
     postgres::{PgConnectOptions, PgSslMode},
-    PgPool,
+    ConnectOptions, PgPool,
 };
+
+use crate::domain::subscriber_email::SubscriberEmail;
 
 pub type Db = axum::extract::State<PgPool>;
 
@@ -11,6 +13,7 @@ pub type Db = axum::extract::State<PgPool>;
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
+    pub email_client: EmailClientSettings,
 }
 
 #[derive(serde::Deserialize)]
@@ -18,6 +21,7 @@ pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
+    pub base_url: String,
 }
 
 impl ApplicationSettings {
@@ -41,9 +45,9 @@ pub struct DatabaseSettings {
 impl DatabaseSettings {
     #[must_use]
     pub fn with_db(&self) -> PgConnectOptions {
-        let mut options = self.without_db().database(&self.database_name);
-        // options.log_statements(log::LevelFilter::Trace);
-        options
+        self.without_db()
+            .database(&self.database_name)
+            .log_statements(log::LevelFilter::Trace)
     }
 
     #[must_use]
@@ -60,6 +64,25 @@ impl DatabaseSettings {
             .ssl_mode(ssl_mode)
             .username(&self.username)
             .password(self.password.expose_secret())
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct EmailClientSettings {
+    pub base_url: String,
+    pub sender_email: String,
+    pub timeout_milliseconds: u64,
+    pub authorization_token: Secret<String>,
+}
+
+impl EmailClientSettings {
+    pub fn sender(&self) -> Result<SubscriberEmail, String> {
+        SubscriberEmail::try_from(self.sender_email.clone())
+    }
+
+    #[must_use]
+    pub fn timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(self.timeout_milliseconds)
     }
 }
 
