@@ -45,4 +45,4 @@ claims            = "0.7"
 fake              = "2"
 quickcheck        = "1"
 quickcheck_macros = "1"
-reqwest           = "0.11"
+reqwest           = { version = "0.11", features = ["json"] }

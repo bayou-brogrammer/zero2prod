@@ -1,5 +1,4 @@
-#! configuration/local.yaml
 application:
   host: 127.0.0.1
 database:
-  required_ssl: false
+  require_ssl: false

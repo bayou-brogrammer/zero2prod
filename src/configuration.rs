@@ -2,7 +2,7 @@ use secrecy::{ExposeSecret, Secret};
 use serde_aux::prelude::deserialize_number_from_string;
 use sqlx::{
     postgres::{PgConnectOptions, PgSslMode},
-    ConnectOptions, PgPool,
+    PgPool,
 };
 
 pub type Db = axum::extract::State<PgPool>;
