@@ -1,4 +1,7 @@
 use crate::configuration::Db;
+use crate::domain::subscriber_email::SubscriberEmail;
+use crate::domain::subscriber_name::SubscriberName;
+use crate::domain::NewSubscriber;
 use axum::{http, response::IntoResponse, Form};
 use sqlx::types::chrono::Utc;
 use sqlx::PgPool;
@@ -8,6 +11,17 @@ use uuid::Uuid;
 pub struct FormData {
     email: String,
     name: String,
+}
+
+impl TryFrom<FormData> for NewSubscriber {
+    type Error = String;
+
+    fn try_from(value: FormData) -> Result<Self, Self::Error> {
+        let email = SubscriberEmail::try_from(value.email.as_str())?;
+        let name = SubscriberName::try_from(value.name.as_str())?;
+
+        Ok(Self { name, email })
+    }
 }
 
 #[allow(clippy::async_yields_async)]
@@ -20,25 +34,32 @@ pub struct FormData {
     )
 )]
 pub async fn subscribe(db: Db, Form(form): Form<FormData>) -> impl IntoResponse {
-    match insert_subscriber(&db, form).await {
-        Ok(_) => http::StatusCode::OK,
-        Err(_) => http::StatusCode::INTERNAL_SERVER_ERROR,
+    if let Ok(new_subscriber) = form.try_into() {
+        match insert_subscriber(&db, &new_subscriber).await {
+            Ok(_) => http::StatusCode::OK,
+            Err(_) => http::StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    } else {
+        http::StatusCode::BAD_REQUEST
     }
 }
 
 #[tracing::instrument(
     name = "Saving new subscriber details in the database",
-    skip(form, pool)
+    skip(new_subscriber, pool)
 )]
-pub async fn insert_subscriber(pool: &PgPool, form: FormData) -> Result<(), sqlx::Error> {
+pub async fn insert_subscriber(
+    pool: &PgPool,
+    new_subscriber: &NewSubscriber,
+) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
     INSERT INTO subscriptions (id, email, name, subscribed_at)
     VALUES ($1, $2, $3, $4)
             "#,
         Uuid::new_v4(),
-        form.email,
-        form.name,
+        new_subscriber.email.as_ref(),
+        new_subscriber.name.as_ref(),
         Utc::now()
     )
     .execute(pool)
