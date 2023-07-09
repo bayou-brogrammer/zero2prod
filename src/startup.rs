@@ -4,20 +4,21 @@ use crate::{
     routes,
 };
 use axum::{
-    extract::FromRef,
+    extract::{FromRef, MatchedPath},
     routing::{get, post},
     Router,
 };
+use hyper::Request;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::net::TcpListener;
 use tower::ServiceBuilder;
 use tower_http::{
     request_id::MakeRequestUuid,
-    trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer},
+    trace::{DefaultOnFailure, DefaultOnRequest, DefaultOnResponse, TraceLayer},
     ServiceBuilderExt,
 };
-use tracing::Level;
+use tracing::{info_span, Level};
 
 #[derive(Clone, Debug)]
 pub struct AppState {
@@ -60,12 +61,32 @@ impl Application {
                 .set_x_request_id(MakeRequestUuid)
                 .layer(
                     TraceLayer::new_for_http()
-                        .make_span_with(
-                            DefaultMakeSpan::new()
+                        .make_span_with(|request: &Request<_>| {
+                            // Log the matched route's path (with placeholders not filled in).
+                            // Use request.uri() or OriginalUri if you want the real path.
+                            let matched_path = request
+                                .extensions()
+                                .get::<MatchedPath>()
+                                .map(MatchedPath::as_str);
+
+                            info_span!(
+                                "http_request",
+                                headers = ?request.headers(),
+                                method = ?request.method(),
+                                matched_path,
+                            )
+                        })
+                        .on_request(DefaultOnRequest::new().level(Level::INFO))
+                        .on_response(
+                            DefaultOnResponse::new()
                                 .include_headers(true)
                                 .level(Level::INFO),
                         )
-                        .on_response(DefaultOnResponse::new().include_headers(true)),
+                        .on_failure(
+                            DefaultOnFailure::new()
+                                .level(Level::INFO)
+                                .latency_unit(tower_http::LatencyUnit::Millis),
+                        ),
                 )
                 .propagate_x_request_id(),
         );

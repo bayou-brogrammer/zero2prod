@@ -11,7 +11,8 @@ name = "zero2prod"
 path = "src/main.rs"
 
 [dependencies]
-axum = "0.6"
+anyhow = "1"
+axum = { version = "0.6.18", features = ["tracing"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 config = { version = "0.13" }
 futures = "0.3"
@@ -33,6 +34,7 @@ sqlx = { version = "0.7.0", default-features = false, features = [
   "chrono",
   "migrate",
 ] }
+thiserror = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tower = "0.4"
 tower-http = { version = "0.4", features = ["trace", "request-id", "util"] }

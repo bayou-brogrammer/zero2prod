@@ -22,12 +22,12 @@ where
 {
     let env_filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(env_filter));
-    let formatting_layer = BunyanFormattingLayer::new(name, sink);
-    Registry::default()
-        .with(env_filter)
-        .with(JsonStorageLayer)
-        .with(formatting_layer)
-        .with(ErrorLayer::default())
+        let formatting_layer = BunyanFormattingLayer::new(name, sink);
+        Registry::default()
+            .with(env_filter)
+            .with(JsonStorageLayer)
+            .with(formatting_layer)
+            .with(ErrorLayer::default())
 }
 
 /// Register a subscriber as global default to process span data.
