@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1"
-axum = { version = "0.6.18", features = ["tracing"] }
+axum = { version = "0.6.18", features = ["tracing", "macros"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 config = { version = "0.13" }
 futures = "0.3"

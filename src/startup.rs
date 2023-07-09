@@ -101,6 +101,7 @@ impl Application {
             .route("/health_check", get(routes::health_check))
             .route("/subscriptions", post(routes::subscribe))
             .route("/subscriptions/confirm", get(routes::confirm))
+            .route("/newsletters", post(routes::publish_newsletter))
             .with_state(state)
             .layer(request_layer);
 

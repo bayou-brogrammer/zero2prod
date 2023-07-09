@@ -42,13 +42,13 @@ impl EmailClient {
 
     pub async fn send_email(
         &self,
-        _recipient: SubscriberEmail,
+        recipient: &SubscriberEmail,
         subject: &str,
         html_content: &str,
         text_content: &str,
     ) -> Result<(), reqwest::Error> {
         let mut hmap = HashMap::new();
-        hmap.insert("to", "lecoqjacob@gmail.com");
+        hmap.insert("to", recipient.as_ref());
         hmap.insert("from", self.sender.as_ref());
         hmap.insert("subject", subject);
         hmap.insert("html", text_content);
@@ -141,7 +141,7 @@ mod tests {
         let content = content();
 
         let outcome = email_client
-            .send_email(subscriber_email, &subject, &content, &content)
+            .send_email(&subscriber_email, &subject, &content, &content)
             .await;
 
         // Assert
@@ -163,7 +163,7 @@ mod tests {
 
         // Act
         let outcome = email_client
-            .send_email(email(), &subject(), &content(), &content())
+            .send_email(&email(), &subject(), &content(), &content())
             .await;
 
         // Assert

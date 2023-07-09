@@ -38,10 +38,10 @@ impl IntoResponse for SubscribeError {
     fn into_response(self) -> axum::response::Response {
         match self {
             SubscribeError::ValidationError(e) => {
-                (http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
+                (http::StatusCode::BAD_REQUEST, e.to_string()).into_response()
             }
-            SubscribeError::UnexpectedError(e) => {
-                (http::StatusCode::INTERNAL_SERVER_ERROR, format!("{e}")).into_response()
+            SubscribeError::UnexpectedError(_) => {
+                http::StatusCode::INTERNAL_SERVER_ERROR.into_response()
             }
         }
     }
@@ -67,5 +67,30 @@ impl std::fmt::Display for StoreTokenError {
             f,
             "A database failure was encountered while trying to store a subscription token."
         )
+    }
+}
+
+// ===================================== Newsletter Errors ===================================== //
+
+#[derive(thiserror::Error)]
+pub enum PublishError {
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
+}
+
+// Same logic to get the full error chain on `Debug`
+impl std::fmt::Debug for PublishError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl IntoResponse for PublishError {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            PublishError::UnexpectedError(_) => {
+                http::StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            }
+        }
     }
 }
